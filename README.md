@@ -57,6 +57,34 @@
 
 也就是说，它的核心不是“自动回一句话”，而是“先建立一个本地可控、可扩展、可审计的微信自动化基础设施”。
 
+## 架构图
+
+下面这张图对应这个项目的核心数据流：
+
+```mermaid
+flowchart TD
+    A["用户在 macOS 上使用微信"] --> B["桌面版微信"]
+    B --> C["AX / AppleScript / Swift Helper"]
+    C --> D["wechat_control.py"]
+    D --> E["wechat_autoreply_service.py"]
+    E --> F["Codex / OpenAI 模型"]
+    E --> G["本地归档层"]
+    G --> H["SQLite 消息库"]
+    G --> I["按聊天导出的 JSONL"]
+    G --> J["style-profile.json / reply-policy.txt / runtime-config.json"]
+    E --> K["自动回复决策"]
+    K --> D
+    D --> B
+```
+
+你可以把它简单理解成：
+
+- 微信负责承载真实聊天界面
+- 本地控制层负责看见界面和执行动作
+- watcher 负责流程编排
+- 模型只负责理解和生成
+- 所有长期数据尽量沉淀在本地
+
 ### 怎么用
 
 最简单的使用方式是 3 步：
@@ -329,6 +357,150 @@ python3 wechat-macos-control/scripts/wechat_runtime_config.py set --mode save-on
 4. 确认没有误点和误发后，再进入长期使用
 
 这样可以把风险压到最低。
+
+## FAQ / 常见报错排查
+
+### 1. `check` 能跑，但 watcher 不会自动回复
+
+先检查这 4 件事：
+
+1. 当前模式是不是 `save-only`
+2. 目标是不是私聊而不是群聊
+3. 目标聊天是不是在微信左侧当前可见区域
+4. `codex` CLI 是否已登录
+
+你可以先看运行时配置：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py show
+```
+
+### 2. 能看到微信，但读不到聊天列表
+
+这通常是 `辅助功能权限` 没开对，或者开给了错误的宿主进程。
+
+优先检查：
+
+- Codex 客户端是否已授权
+- 你实际运行命令的终端是否已授权
+- 微信是否已经打开并处于可访问状态
+
+### 3. 服务启动了，但没有识别到某个新消息
+
+这是最常见的现象之一。当前方案默认只看：
+
+- 微信左侧当前可见会话
+
+所以如果某个聊天被你滚出当前视口，它就不会被 watcher 看到。
+
+### 4. 为什么群聊被跳过了
+
+这是当前设计的故意行为：
+
+- 群聊默认只学习和归档
+- 不自动回复
+
+另外，自动识别成群聊的标题会被写进：
+
+- `detected-groups.txt`
+
+后面 watcher 会直接跳过它。
+
+### 5. 自动回复时为什么会打断我当前操作
+
+因为这套方案本质上还是桌面 UI 自动化。发送消息时，脚本可能需要：
+
+- 切到微信
+- 选中聊天
+- 聚焦输入框
+- 发送消息
+
+所以它不是完全后台、完全无感的方案。
+
+### 6. 为什么它不再搜索联系人兜底发消息
+
+这是后来刻意收紧的安全策略。
+
+早期搜索联系人兜底虽然“更聪明”，但误发风险太高。  
+现在默认只允许：
+
+- 当前聊天
+- 左侧当前可见聊天
+
+### 7. 我想先只保存，不自动回复
+
+直接切回：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --mode save-only
+```
+
+### 8. 我想恢复自动回复
+
+切回：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --mode auto-reply
+```
+
+### 9. 我想换发送快捷键
+
+比如你把微信发送改成 `Enter`，就执行：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --send-mode enter
+```
+
+如果你想改成 `Cmd+Enter`：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --send-mode cmd-enter
+```
+
+### 10. 本地数据都存在哪
+
+默认目录是：
+
+```text
+~/Library/Application Support/wechat-macos-control
+```
+
+重点文件包括：
+
+- `wechat-message-store.sqlite3`
+- `chats/*.jsonl`
+- `runtime-config.json`
+- `reply-policy.txt`
+- `group-whitelist.txt`
+- `detected-groups.txt`
+- `style-profile.json`
+- `wechat-autoreply.log`
+
+### 11. 我怎么确认服务真的在运行
+
+最简单的方法就是看日志：
+
+```bash
+tail -f "$HOME/Library/Application Support/wechat-macos-control/wechat-autoreply.log"
+```
+
+如果你改过 `WECHAT_LOCAL_DATA_ROOT`，就把路径换成你的自定义目录。
+
+### 12. 我升级微信后突然不能用了怎么办
+
+优先怀疑两件事：
+
+1. AX 结构变化了
+2. 原有控件定位失效了
+
+这时候先做：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_control.py snapshot
+swift wechat-macos-control/scripts/wechat_ax_dump.swift --depth 3
+```
+
+先确认当前微信 UI 结构有没有变，再决定要不要修脚本。
 
 This repository packages the skill, scripts, and sample configuration needed to:
 
