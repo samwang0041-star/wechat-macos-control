@@ -74,6 +74,195 @@
 
 如果你后续想做日报、待办抽取、聊天分析，这个仓库的价值主要就在于它已经把“微信操作”和“结构化数据沉淀”这两件事接到一起了。
 
+## 一步一步使用指南
+
+这部分按“第一次上手”的顺序来写。你不需要先理解全部脚本，照着做就能把它跑起来。
+
+### 第 1 步：准备环境
+
+先确认这几件事已经满足：
+
+1. 你的系统是 macOS
+2. 已安装桌面版微信，路径是 `/Applications/WeChat.app`
+3. 本机有 `python3` 和 `swift`
+4. 已安装并登录 `codex` CLI
+5. 给 Codex 或你运行命令的终端开了 macOS `辅助功能` 权限
+
+如果你只想先测试控制能力，不急着自动回复，那么第 4 条可以后面再做。
+
+### 第 2 步：安装 skill
+
+把仓库里的 `wechat-macos-control` 放到 `$CODEX_HOME/skills/` 下。
+
+```bash
+mkdir -p "$CODEX_HOME/skills"
+cp -R wechat-macos-control "$CODEX_HOME/skills/wechat-macos-control"
+```
+
+如果你更习惯用软链接，也可以这样：
+
+```bash
+ln -s "$(pwd)/wechat-macos-control" "$CODEX_HOME/skills/wechat-macos-control"
+```
+
+### 第 3 步：准备本地数据目录
+
+默认情况下，运行数据会放到：
+
+```text
+~/Library/Application Support/wechat-macos-control
+```
+
+如果你想自定义目录，可以提前设置：
+
+```bash
+export WECHAT_LOCAL_DATA_ROOT="/your/path"
+```
+
+这个目录后面会存放：
+
+- 聊天归档数据库
+- 每个聊天的 JSONL 导出
+- 运行时配置
+- 白名单
+- 回复策略
+- 风格画像
+- 日志文件
+
+### 第 4 步：先做一次基础检查
+
+先不要急着开 watcher，先确认微信可见、权限正常、脚本能读到窗口。
+
+```bash
+python3 wechat-macos-control/scripts/wechat_control.py check
+```
+
+如果这里返回正常，再继续。
+
+你也可以顺手看一下左侧聊天列表：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_control.py visible-chats --limit 8
+```
+
+### 第 5 步：先用手动模式试一遍
+
+建议先验证 3 个最小动作：
+
+1. 读取当前聊天
+2. 读取当前聊天消息
+3. 聚焦输入框并准备发送
+
+命令示例：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_control.py current-chat
+python3 wechat-macos-control/scripts/wechat_control.py read-current-messages --limit 12
+python3 wechat-macos-control/scripts/wechat_control.py focus-compose
+```
+
+如果你想测试发送链路，先用文件传输助手，不要直接对真人聊天做实验。
+
+### 第 6 步：先用 save-only 跑起来
+
+第一次运行，建议不要立刻自动回复，而是先进入“只保存消息”的模式。
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --mode save-only
+python3 wechat-macos-control/scripts/wechat_autoreply_service.py \
+  --monitor-visible \
+  --visible-limit 8 \
+  --backend codex \
+  --send-mode enter
+```
+
+这样它会：
+
+- 监控当前左侧可见会话
+- 保存消息和本地结构化数据
+- 学习你的表达风格
+- 但不会自动回复
+
+这是最稳的第一次启动方式。
+
+### 第 7 步：确认数据已经开始落地
+
+启动一段时间后，你可以去看这些文件：
+
+- `wechat-message-store.sqlite3`
+- `chats/*.jsonl`
+- `runtime-config.json`
+- `wechat-autoreply.log`
+
+如果这些文件已经开始生成，说明本地归档链路是通的。
+
+### 第 8 步：再切到自动回复
+
+确认前面都正常后，再切到 `auto-reply`：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --mode auto-reply
+```
+
+当前设计下：
+
+- 私聊可以自动回复
+- 群聊默认只学习和归档，不自动回复
+- 自动回复只作用于左侧当前可见且可直接选中的聊天
+- 不会再兜底用“发起会话”搜索联系人，避免误发
+
+### 第 9 步：按需调整配置
+
+你后面最常改的通常是这几项：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py show
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --mode save-only
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --mode auto-reply
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --send-mode enter
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --context-limit 12
+```
+
+几份关键文件分别负责：
+
+- `reply-policy.txt`：回复底层规则
+- `group-whitelist.txt`：允许保留结构化数据的群聊名单
+- `detected-groups.txt`：自动识别后不再点击的群聊名单
+- `style-profile.json`：本地风格画像
+
+### 第 10 步：日常使用建议
+
+如果你是第一次真正日用，我建议这样：
+
+1. 先只开 `save-only`
+2. 观察半天到一天
+3. 确认没有误点、误识别、误归档
+4. 再切到 `auto-reply`
+5. 先只在少量私聊里使用
+
+这样比一开始就全自动稳定得多。
+
+### 常见问题
+
+`1. 为什么它没有看到某个新消息？`  
+因为当前方案默认只监控微信左侧“当前可见”的会话。
+
+`2. 为什么群聊不会自动回？`  
+这是故意设计的安全边界。群聊默认只学习和归档。
+
+`3. 为什么它不会搜索联系人兜底发送？`  
+为了避免误发。当前策略只允许对当前聊天或左侧可见聊天发送。
+
+`4. 我想停掉服务怎么办？`  
+直接停止当前运行 watcher 的终端进程即可。
+
+`5. 我想只保存、不回复怎么办？`  
+把运行模式切回：
+
+```bash
+python3 wechat-macos-control/scripts/wechat_runtime_config.py set --mode save-only
+```
+
 This repository packages the skill, scripts, and sample configuration needed to:
 
 - inspect the current WeChat window state
