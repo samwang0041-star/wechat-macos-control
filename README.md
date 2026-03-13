@@ -1,6 +1,6 @@
-# WeChat macOS Control
+# macOS Codex 模拟你的角色去答复
 
-Local Codex skill for operating the macOS desktop WeChat client through Accessibility and AppleScript helpers.
+Local Codex skill for simulating your role and replying through the macOS desktop WeChat client.
 
 ## 中文简介
 
