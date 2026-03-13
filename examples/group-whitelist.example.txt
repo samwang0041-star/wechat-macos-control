@@ -1,0 +1,7 @@
+# One exact group name per line.
+# Only these groups are kept for structured archival.
+
+项目协同群
+产品运营群
+团队核心讨论组
+外部合作推进群

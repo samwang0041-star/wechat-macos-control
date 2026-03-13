@@ -1,0 +1,3 @@
+interface:
+  display_name: "WeChat macOS Control"
+  short_description: "Operate desktop WeChat on macOS through local UI automation"

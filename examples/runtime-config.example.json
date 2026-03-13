@@ -1,0 +1,10 @@
+{
+  "profile": "immediate",
+  "mode": "auto-reply",
+  "send_mode": "enter",
+  "idle_seconds_before_send": 8,
+  "context_limit": 12,
+  "poll_interval_seconds": 2.0,
+  "settle_seconds": 0.35,
+  "reply_quiet_window_seconds": 1.6
+}
