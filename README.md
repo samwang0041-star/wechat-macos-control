@@ -1,6 +1,6 @@
-# macOS Codex 模拟你的角色去答复
+# macOS 基于 Codex 的微信托管助理
 
-Local Codex skill for simulating your role and replying through the macOS desktop WeChat client.
+Local Codex skill for a managed WeChat assistant on macOS.
 
 ## 中文简介
 
