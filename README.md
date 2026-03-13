@@ -1,6 +1,6 @@
 # macOS 基于 Codex 的微信托管助理
 
-Local Codex skill for a managed WeChat assistant on macOS.
+一个运行在 macOS 上、基于 Codex 的本地微信托管助理。
 
 ## 中文简介
 

@@ -3,7 +3,7 @@ name: wechat-macos-control
 description: Operate the macOS desktop WeChat client through Accessibility and AppleScript helpers. Use when the user wants Codex to activate WeChat, inspect the current window state, open a chat, paste or send text, or debug WeChat desktop automation on macOS.
 ---
 
-# WeChat macOS Control
+# macOS 基于 Codex 的微信托管助理
 
 ## Overview
 
